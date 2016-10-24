@@ -1,0 +1,66 @@
+version: '2'
+
+services:
+  kafka :
+    image : wurstmeister/kafka
+    hostname : kafka
+    environment:
+        KAFKA_ADVERTISED_HOST_NAME: kafka
+        KAFKA_ADVERTISED_PORT: 9092
+        KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+        KAFKA_GROUP_ID: alog_proc
+        CASSANDRA_KEY_STORE : access_log
+    ports:
+       - "9092:9092"
+    depends_on:
+       - zookeeper
+    networks:
+       - internal
+  zookeeper:
+    image : zookeeper
+    ports:
+         - "2181:2181"
+         - "3888:3888"
+    networks:
+         - internal
+  producer:
+      image : kovavol/logprod
+      ports:
+           - "8080:8080"
+      depends_on:
+           - kafka
+      environment:
+           KAFKA_PEERS: kafka:9092
+      networks:
+           - internal
+           - public
+  proc:
+      image : kovavol/logproc
+      depends_on:
+          - kafka
+          - cassandra
+      environment:
+          ZOOKEEPER_HOSTS: zookeeper:2181
+          CASSANDRA_HOST: cassandra
+          CASSANDRA_PORT: 9042
+          KAFKA_GROUP_ID: access_logproc
+          CASSANDRA_KEY_STORE: access_log
+      networks:
+          - internal
+  cassandra:
+      image : cassandra:3.9
+      ports:
+         - "9042:9042"
+      networks:
+         - internal
+  logprov:
+      image : kovavol/logprov
+      ports:
+         - "8082:8082"
+      environment:
+         CASSANDRA_NODE: cassandra
+      networks:
+         - internal
+networks:
+  internal:
+  public:
